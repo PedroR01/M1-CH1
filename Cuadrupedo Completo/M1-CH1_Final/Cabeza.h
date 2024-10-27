@@ -15,10 +15,9 @@ private:
   NewPing eyes = NewPing(triggerPin, echoPin, maxDistance);
   unsigned int pingSpeed = 50;  //120  // How frequently are we going to send out a ping (in milliseconds). 50ms would be 20 times a second.
   unsigned long pingTimer;      // Holds the next ping time.
-  unsigned long simulatedMillis = 0;
   unsigned long actualTime;
   unsigned long lastObservedTime = 0;
-  const unsigned long observeCompare = 150;  //10 // 35
+  unsigned long observeCompare = 10;  //10 // 35
 
   // Servomotor SG-90
   Servo neck;
@@ -30,16 +29,12 @@ private:
 
   bool mustAnalize = false;
 
-  // Temporizadores
-  int tiempoActual;
-  unsigned long tCaricias;
-  unsigned long tObservacion;
-  int temporizador;
-
   static Cabeza* instanciaActual;
 
-  int sonarToCm();
   void seeArround(bool* isPetting);
+  void seeArround(bool(Interaccion::*callback)(), Interaccion* interaccionObj, bool* fallback);
+  int getFilteredDistance();
+  void sortArray(int* arr, int size);
 
 public:
   Cabeza();
@@ -47,11 +42,12 @@ public:
   void pingInterruptionCheck();
   static void echoCheck();
   void analize(bool* isPetting);
+  void analize(bool(Interaccion::*callback)(), Interaccion* interaccionObj, bool* fallback);
   int getBestAngle();
   float getDistancia();
-  void observar();
-  void refregarCabeza(bool(Interaccion::*callback)(), Interaccion* interaccionObj);
-  void headPettingMovement(bool* isPetting);
+  void headPettingMovement(bool(Interaccion::*callback)(), Interaccion* interaccionObj);
+  bool timeLapse();
+  void setMoveTimer(unsigned long value);
 };
 
 #endif  // !CABEZA_H

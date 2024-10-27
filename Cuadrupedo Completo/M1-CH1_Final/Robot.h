@@ -18,6 +18,8 @@ private:
   int randomStopTimer;
   int randomActionTimer;
 
+  bool fallback;
+  
   void move();
   void checkPetting();
   void stopRobot(bool* isPetting);

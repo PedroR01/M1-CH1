@@ -17,8 +17,8 @@ void Interaccion::begin() {
 void Interaccion::petting() {
   if (touch.capacitiveSensor(30) > threshold) {
     isPetting = true;
-    if (isInCatMode())
-      digitalWrite(motorPin, HIGH);
+    /*if (isInCatMode())
+      digitalWrite(motorPin, HIGH);*/
     Serial.print("Estado motor vibracion: ");
     Serial.println(digitalRead(motorPin));
     catMode++;

@@ -7,9 +7,8 @@
 
 class Piernas {
 private:
-  unsigned long actualTime;
-  unsigned long lastExecutedMov;      // variable to save the last executed movement time
-  const unsigned long movTime = 500;  // ms
+  unsigned long lastMoveTime;
+  unsigned long moveTimer = 2; // 30 para animaciones en modo gato.
 
   const int backLPin = A1;
   const int backRPin = A5;
@@ -23,6 +22,9 @@ private:
 
   int side;
 
+
+  bool timeLapse();
+
 public:
   Piernas();
   void begin();
@@ -32,11 +34,10 @@ public:
   void standInTwoLegs();
   void giveHand();
   void rotateCat(int direction, int cant, bool* isPetting);
-  void backwards(bool* isPetting);
-  void botMovement(bool* isPetting);
-  void botMovementWCb(bool(Interaccion::*callback)(), Interaccion* interaccionObj);
-  void catMovement(bool* isPetting);
-  void catMovementWCb(bool(Interaccion::*callback)(), Interaccion* interaccionObj);
+  void backwards(bool (Interaccion::*callback)(), Interaccion* interaccionObj);
+  void botMovementWCb(bool (Interaccion::*callback)(), Interaccion* interaccionObj);
+  void catMovementWCb(bool (Interaccion::*callback)(), Interaccion* interaccionObj);
+  void setMoveTimer(unsigned long value);
 };
 
 #endif  // !PIERNAS_H
