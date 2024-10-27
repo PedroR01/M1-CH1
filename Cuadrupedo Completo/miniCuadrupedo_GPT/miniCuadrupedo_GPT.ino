@@ -58,9 +58,22 @@ void setup() {
 }
 
 void loop() {
+  inicializar();
+  //observar(modoGato);
   unsigned long tiempoActual = millis();
-
-  if (tiempoActual - ultimoTiempoMimos >= 100) {
+  bool alternar = true;
+  if (modoGato >= AFECTO_MINIMO) {
+    movimiento_Gato(modoGato);
+  } else {
+    movimiento_Gato(modoGato);
+    
+    if (tiempoActual - ultimoTiempoEjecucion >= TIEMPO_MOVIMIENTO) {
+      movimiento_2Piernas(alternar, modoGato);
+      ultimoTiempoEjecucion = tiempoActual;
+    }
+    
+  }
+  /*if (tiempoActual - ultimoTiempoMimos >= 100) {
     mimos(modoGato);
     ultimoTiempoMimos = tiempoActual;
   }
@@ -80,21 +93,28 @@ void loop() {
   }
 
   Serial.print("Valor final: ");
-  Serial.println(modoGato);
+  Serial.println(modoGato);*/
+}
+
+void inicializar() {
+  traseraIzq.write(80);     // 80 derecho - 160 atras - 35 adelante
+  traseraDer.write(130);    // 130 derecho - 45 atras - 170 adelante
+  delanteraIzq.write(80);   // 80 derecho - 150 atras - 20 adelante
+  delanteraDer.write(100);  // 100 derecho - 40 atras - 170 adelante
 }
 
 void movimiento_2PiernasTras(bool& accion) {
   if (accion) {
-    traseraIzq.write(120);
-    delanteraDer.write(20);
-    traseraDer.write(30);
-    delanteraIzq.write(120);
+    traseraIzq.write(80);
+    delanteraDer.write(130);
+    traseraDer.write(130);
+    delanteraIzq.write(150);
     accion = false;
   } else {
-    traseraIzq.write(10);
-    delanteraDer.write(20);
-    traseraDer.write(135);
-    delanteraIzq.write(120);
+    traseraIzq.write(160);
+    delanteraDer.write(130);
+    traseraDer.write(45);
+    delanteraIzq.write(150);
     accion = true;
   }
 }
@@ -107,27 +127,27 @@ void movimiento_2Piernas(bool& alternar, float& modoGato) {
     observar(modoGato);
   }
   if (alternar) {
-    if (traseraIzq.read() < 120) {
-      traseraIzq.write(120);
-      traseraDer.write(30);
+    if (traseraIzq.read() < 80) {
+      traseraIzq.write(80);
+      traseraDer.write(130);
     } else {
-      traseraIzq.write(10);
-      traseraDer.write(135);
+      traseraIzq.write(160);
+      traseraDer.write(45);
       alternar = false;
     }
     delanteraDer.write(50);
     delanteraIzq.write(85);
   } else {
     if (delanteraIzq.read() <= 25) {
-      delanteraDer.write(55);
+      delanteraDer.write(100);
       delanteraIzq.write(80);
     } else {
-      delanteraDer.write(110);
-      delanteraIzq.write(20);
+      delanteraDer.write(135);
+      delanteraIzq.write(45);
       alternar = true;
     }
-    traseraIzq.write(10);
-    traseraDer.write(135);
+    traseraIzq.write(160);
+    traseraDer.write(45);
     if (capSensor.capacitiveSensor(30) > filtro) {
       mimos(modoGato);
     }
@@ -138,13 +158,13 @@ void movimiento_2Piernas(bool& alternar, float& modoGato) {
 }
 
 void movimiento_Gato(float& modoGato) {
-  int iDer = 135;
+  int iDer = 130;
   int ultimoValorIDer = iDer;
-  int jDer = 95;
+  int jDer = 100;
 
-  int iIzq = 120;
+  int iIzq = 150;
   int ultimoValorIIzq = iIzq;
-  int jIzq = 85;
+  int jIzq = 100;
 
   int velocidadPierna = 2;
 
@@ -155,8 +175,8 @@ void movimiento_Gato(float& modoGato) {
     observar(modoGato);
   }
 
-  while (iDer > 30 || iIzq > 10) {
-    if (iDer > 30) {
+  while (iDer > 45 || iIzq > 35) {
+    if (iDer > 45) {
       traseraDer.write(iDer);
       iDer--;
       if (iDer < ultimoValorIDer - velocidadPierna) {
@@ -165,7 +185,7 @@ void movimiento_Gato(float& modoGato) {
         ultimoValorIDer = iDer;
       }
     }
-    if (iIzq > 10) {
+    if (iIzq > 35) {
       traseraIzq.write(iIzq);
       iIzq--;
       if (iIzq < ultimoValorIIzq - 1) {
@@ -190,25 +210,25 @@ void movimiento_Gato(float& modoGato) {
     observar(modoGato);
   }
 
-  while (iDer < 135 || iIzq < 105) {
-    if (iDer < 135) {
+  while (iDer < 170 || iIzq < 160) {
+    if (iDer < 170) {
       traseraDer.write(iDer);
       iDer++;
       if (iDer > ultimoValorIDer + velocidadPierna) {
         delanteraDer.write(jDer);
-        if (traseraDer.read() >= 135 / 2) {
+        if (traseraDer.read() >= 130) {
           jDer++;
         } else
           jDer--;
         ultimoValorIDer = iDer;
       }
     }
-    if (iIzq < 105) {
+    if (iIzq < 160) {
       traseraIzq.write(iIzq);
       iIzq++;
       if (iIzq > ultimoValorIIzq + 1) {
         delanteraIzq.write(jIzq);
-        if (traseraIzq.read() >= 15) {
+        if (traseraIzq.read() >= 35) {
           jIzq++;
         } else
           jIzq--;
@@ -228,10 +248,13 @@ void moverse(float modoGato) {
   if (modoGato >= AFECTO_MINIMO) {
     movimiento_Gato(modoGato);
   } else {
+    //movimiento_Gato(modoGato);
+    
     if (tiempoActual - ultimoTiempoEjecucion >= TIEMPO_MOVIMIENTO) {
       movimiento_2Piernas(alternar, modoGato);
       ultimoTiempoEjecucion = tiempoActual;
     }
+    
   }
 }
 

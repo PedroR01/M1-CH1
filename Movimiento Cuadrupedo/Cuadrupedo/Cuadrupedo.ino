@@ -3,10 +3,14 @@
 #define EXE_INTERVAL 350
 unsigned long lastExecutedMillis = 0;  // vairable to save the last executed time
 
-const int piernaTrasIzqPin = 13;
-const int piernaTrasDerPin = 12;
-const int piernaDelIzqPin = 2;
-const int piernaDelDerPin = 3;
+const int cuelloPin = A5;
+
+const int piernaTrasIzqPin = A7;
+const int piernaTrasDerPin = A3;
+const int piernaDelDerPin = A0;
+const int piernaDelIzqPin = A9;
+
+Servo cuello;
 
 Servo traseraIzq;
 Servo traseraDer;
@@ -22,15 +26,20 @@ int posDelanteraDerecha = 65;
 
 void setup() {
   Serial.begin(9600);
+
+  cuello.attach(cuelloPin);
+
   traseraIzq.attach(piernaTrasIzqPin);
   traseraDer.attach(piernaTrasDerPin);
   delanteraIzq.attach(piernaDelIzqPin);
   delanteraDer.attach(piernaDelDerPin);
 
-  traseraIzq.write(135); // 150 - 0 // sentado = 135 // parado = 
-  traseraDer.write(20); // 0 - 140 // sentado = 20 // parado = 
-  delanteraDer.write(20); // 0 - 137 // sentado = 17 // parado = 
-  delanteraIzq.write(110); // 145 - 0 // sentado = 130 // parado = 
+  cuello.write(90);
+
+  traseraIzq.write(80);   // 80 derecho - 160 atras - 35 adelante
+  traseraDer.write(130);  // 130 derecho - 45 atras - 170 adelante
+  delanteraIzq.write(80);   // 80 derecho - 150 atras - 20 adelante
+  delanteraDer.write(100);  // 100 derecho - 40 atras - 170 adelante
 
   //pararse();
 }
