@@ -17,7 +17,7 @@ private:
   unsigned long pingTimer;      // Holds the next ping time.
   unsigned long actualTime;
   unsigned long lastObservedTime = 0;
-  unsigned long observeCompare = 10;  //10 // 35
+  unsigned long observeCompare = 4;  //10 // 35
 
   // Servomotor SG-90
   Servo neck;
@@ -25,7 +25,7 @@ private:
   const int limiteSup = 100;
   const int limiteInf = 80;
   const int centeredPos = 90;
-  int bestAngle;
+  int bestAngle = 90;
 
   bool mustAnalize = false;
 
@@ -48,6 +48,7 @@ public:
   void headPettingMovement(bool(Interaccion::*callback)(), Interaccion* interaccionObj);
   bool timeLapse();
   void setMoveTimer(unsigned long value);
+  void centerNeck();
 };
 
 #endif  // !CABEZA_H

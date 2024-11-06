@@ -12,15 +12,17 @@ const uint16_t limit = 9375;  // Timer5 interruption frecuency / velocity - - 93
 void setup() {
   Serial.begin(9600);
 
-  initTimer5();
+  //initTimer5();
   michi.begin();
 }
 
 void loop() {
   michi.pingIntCheck();
-  michi.path();
+  // michi.path();
+  michi.move();
 }
 
+/*
 void initTimer5() {
   TCNT5 = 0;  // Inicializar el contador en 0
 
@@ -43,3 +45,4 @@ ISR(TIMER5_COMPA_vect) {
   checkState = !checkState;
   michi.setCheckState(checkState);
 }
+*/

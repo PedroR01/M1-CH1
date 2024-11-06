@@ -1,7 +1,7 @@
 #include <CapacitiveSensor.h>
 
 // pin 6 envia energia - pin 5 capta cambios de energia
-CapacitiveSensor capSensor = CapacitiveSensor(6, 5);
+CapacitiveSensor capSensor = CapacitiveSensor(10, 7);
 
 // Filtro o rango a partir del que se desea efectuar algun evento
 const int threshold = 500;
@@ -20,6 +20,6 @@ void loop() {
   else 
     digitalWrite(LED_BUILTIN, LOW);
   
-  delay(100);
+  //delay(100);
   Serial.println(sensorValue);
 }

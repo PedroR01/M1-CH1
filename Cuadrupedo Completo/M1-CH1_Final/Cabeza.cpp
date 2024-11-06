@@ -2,8 +2,8 @@
 
 #define LIMITE_SUP 110
 #define LIMITE_INF 70
-#define OBSTACLE_DISTANCE 15
-#define ROBOT_WIDTH 20
+#define OBSTACLE_DISTANCE 25
+#define ROBOT_WIDTH 25
 #define NUM_READINGS 5  // Número de lecturas para el filtro de lecturas del Ultrasonico(US)
 
 Cabeza* Cabeza::instanciaActual = nullptr;  // Inicializar el puntero estático
@@ -34,7 +34,7 @@ void Cabeza::echoCheck() {  // Timer2 interrupt calls this function every 24uS w
                                               // Here's where you can add code.
 
     // Analizar si hay algun obstaculo enfrente.
-    if (instanciaActual->eyes.ping_cm() < OBSTACLE_DISTANCE && instanciaActual->eyes.ping_cm() != 0)
+    if (instanciaActual->getFilteredDistance() < OBSTACLE_DISTANCE && instanciaActual->eyes.ping_cm() != 0)
       instanciaActual->mustAnalize = true;
   }
   // Don't do anything here!
@@ -45,67 +45,111 @@ void Cabeza::analize(bool (Interaccion::*callback)(), Interaccion* interaccionOb
   if (this->mustAnalize) {
     actualTime = millis();
     lastObservedTime = actualTime;
-    seeArround(callback, interaccionObj, fallback);
+    int distancia = getFilteredDistance();
+    if (distancia < OBSTACLE_DISTANCE && distancia != 0)
+      seeArround(callback, interaccionObj, fallback);
+    mustAnalize = false;
   }
 }
 
+// Debido a la impresición del ultrasonico para captar los obstaculos, ya sea por como se implementa
+// o por su prespectiva/posición desde la estructura del modelo 3D, se simplifica el codigo de "mejor Camino posible"
+// a "si adelante hay un obstaculo, revisar izquierda, si en izquierda también, revisar derecha".
+// Tal vez, para solventar esta falencia, sería buena solución usar sensores Infrarrojos de obstaculos a los costados del cuello.
 void Cabeza::seeArround(bool (Interaccion::*callback)(), Interaccion* interaccionObj, bool* fallback) {
-  int anguloInicial = 30;
-  int anguloFinal = 150;
-  int paso = 5;
+  int anguloInicial = 40;
+  int anguloFinal = 140;
   int mejorAngulo = 90;
-  int mejorDistancia = 0;
+  int mejorDistancia = 1;          // 0 representa que no hay obstaculos captados en el rango que permite el US o para el que se configuró.
+  int offsetMarginDistance = 10;   // Para tener en cuenta en el caso de que haya algun obstaculo en algún costado que este apenas más lejos que el obstaculo detectado en frente.
+  int noObstacleVerification = 0;  // Contador para corroborar que no hay ningun obstaculo en la zona analizada.
 
   // Mueve la cabeza para detectar el entorno
   int angulo = mejorAngulo;
   bool noObstacle = false;
   bool isPetting = (interaccionObj->*callback)();
 
-  // Observa lado derecho
-  while (angulo >= anguloInicial && !isPetting) {
+  // Detecta algo enfrente.
+  // Mira a la izquierda --> Si detecta algo (con el filtrado de la señal) en el rango de obstaculo
+  // Mira a la derecha --> Si detecta algo (con el filtrado de la señal) en el rango de obstaculo
+  // Vuelve X cant de pasos hacía atras
+  // Vuelve a escanear todo y repite el proceso la cant de veces que sea necesario O lo hace 1 vez más y ya luego se detiene esperando a que lo muevan de lugar.
+  // Si no detecta nada, gira a la derecha, se pone con el cuello derecho y luego sigue su rutina
+  // Si no detecta nada, gira a la izquierda, se pone con el cuello derecho y luego sigue su rutina
+
+  // Observa lado izquierdo
+  while (angulo <= anguloFinal && !isPetting && !noObstacle) {
     actualTime = millis();
     if ((actualTime - lastObservedTime) >= observeCompare) {
       neck.write(angulo);
       int distancia = getFilteredDistance();
+      if (distancia == 0 || distancia > (OBSTACLE_DISTANCE + offsetMarginDistance)) {
+        noObstacleVerification += 1;
+        if (noObstacleVerification >= ROBOT_WIDTH) {
+          noObstacle = true;
+          mejorAngulo = angulo;
+        }
+      } else if (distancia <= OBSTACLE_DISTANCE) {
+        noObstacleVerification = 0;  // Me conviene reiniciar el contador o restarlo en 1, por si solamente captó una señal erronea/equivocada?
+      }
+      /*
       // El mejor caso es en el que no encuentra obstaculos en alguna direccion
       if ((distancia == maxDistance || distancia == 0) && !noObstacle) {
         mejorDistancia = distancia;
         mejorAngulo = angulo;
         noObstacle = true;
-
       } else if (distancia > mejorDistancia && !noObstacle) {  // Si no existe una direccion sin obstaculos, opta por dirigirse a la que haya detectado una mayor distancia con el obstaculo
         mejorDistancia = distancia;
         mejorAngulo = angulo;
       }
+      */
       lastObservedTime = actualTime;
-      angulo--;
-      Serial.println("Analizando caminos D...");
-      isPetting = (interaccionObj->*callback)();
+      // Si todavía detecta obstaculos
+      if (!noObstacle) {
+        angulo++;
+        isPetting = (interaccionObj->*callback)();
+      }
     }
   }
 
-  // En el caso de que no haya encontrado un mejor camino por el lado derecho, mira su lado izquierdo.
-  if (mejorAngulo == 90) {
-    // Observa lado izquierdo
-    while (angulo <= anguloFinal && !isPetting) {
+  noObstacleVerification = 0;  // Reinicio el contador de verificación para analizar el lado derecho
+
+  // En el caso de que no haya un camino libre por la izquierda
+  if (!noObstacle) {  // mejorAngulo == 90
+    // Observa lado derecho
+    while (angulo >= anguloInicial && !isPetting && !noObstacle) {
       actualTime = millis();
       if ((actualTime - lastObservedTime) >= observeCompare) {
         neck.write(angulo);
         int distancia = getFilteredDistance();
+        if (distancia == 0 || distancia > (OBSTACLE_DISTANCE + offsetMarginDistance)) {
+          noObstacleVerification += 1;
+          if (noObstacleVerification >= ROBOT_WIDTH) {
+            noObstacle = true;
+            mejorAngulo = angulo;
+          }
+        } else if (distancia <= OBSTACLE_DISTANCE) {
+          noObstacleVerification = 0;  // Me conviene reiniciar el contador o restarlo en 1, por si solamente captó una señal erronea/equivocada?
+        }
+        /*
         // El mejor caso es en el que no encuentra obstaculos en alguna direccion
         if ((distancia == maxDistance || distancia == 0) && !noObstacle) {
           mejorDistancia = distancia;
           mejorAngulo = angulo;
           noObstacle = true;
+
         } else if (distancia > mejorDistancia && !noObstacle) {  // Si no existe una direccion sin obstaculos, opta por dirigirse a la que haya detectado una mayor distancia con el obstaculo
           mejorDistancia = distancia;
           mejorAngulo = angulo;
         }
+        */
         lastObservedTime = actualTime;
-        angulo++;
-        isPetting = (interaccionObj->*callback)();
+        // Si todavía detecta obstaculos
+        if (!noObstacle) {
+          angulo--;
+          isPetting = (interaccionObj->*callback)();
+        }
       }
-      Serial.println("Analizando caminos I...");
     }
   }
 
@@ -113,17 +157,21 @@ void Cabeza::seeArround(bool (Interaccion::*callback)(), Interaccion* interaccio
   Serial.println(mejorAngulo);
   Serial.println("La mejor distancia es: ");
   Serial.println(mejorDistancia);
-  // Usa booleano isPetting para chequear si se ejecutó la interrupción de la caricia. Si no se interrumpio el analisis, la cabeza gira a la mejor pos analizada
-  if (isPetting) {
+  delay(2000);
+
+  // Usa booleano isPetting para chequear si se ejecutó la interrupción de la caricia. En dicho caso se resetean los valores como para repetir el analisis
+  if (isPetting || (mejorAngulo < 95 && mejorAngulo > 85)) {
     neck.write(90);
     mejorAngulo = 90;
+    noObstacle = false;
   }
 
   // Si se encuentra encerrado debe retroceder y pegar la vuelta o analizar desde otra posicion
-  if (mejorDistancia <= OBSTACLE_DISTANCE && mejorDistancia != 0) {
+  if ((mejorDistancia <= OBSTACLE_DISTANCE && mejorDistancia != 0) || !noObstacle) {
     Serial.println("Debe retroceder.");
     *fallback = true;
   }
+
   mustAnalize = false;
   bestAngle = mejorAngulo;
 }
@@ -157,6 +205,7 @@ void Cabeza::seeArround(bool* isPetting) {
     if (timeLapse()) {
       neck.write(angulo);
       int distancia = getFilteredDistance();
+      Serial.print(distancia);
       // El mejor caso es en el que no encuentra obstaculos en alguna direccion
       if ((distancia == maxDistance || distancia == 0) && !noObstacle) {
         mejorDistancia = distancia;
@@ -169,7 +218,6 @@ void Cabeza::seeArround(bool* isPetting) {
       }
       lastObservedTime = actualTime;
       angulo--;
-      Serial.println("Analizando caminos D...");
     }
   }
 
@@ -181,6 +229,7 @@ void Cabeza::seeArround(bool* isPetting) {
       if (timeLapse()) {
         neck.write(angulo);
         int distancia = getFilteredDistance();
+        Serial.print(distancia);
         // El mejor caso es en el que no encuentra obstaculos en alguna direccion
         if ((distancia == maxDistance || distancia == 0) && !noObstacle) {
           mejorDistancia = distancia;
@@ -193,7 +242,6 @@ void Cabeza::seeArround(bool* isPetting) {
         lastObservedTime = actualTime;
         angulo++;
       }
-      Serial.println("Analizando caminos I...");
     }
   }
 
@@ -272,10 +320,14 @@ void Cabeza::headPettingMovement(bool (Interaccion::*callback)(), Interaccion* i
   }
 }
 
-bool Cabeza::timeLapse(){
+bool Cabeza::timeLapse() {
   return ((millis() - lastObservedTime) >= observeCompare);
 }
 
 void Cabeza::setMoveTimer(unsigned long value) {
   this->observeCompare = value;
+}
+
+void Cabeza::centerNeck() {
+  neck.write(90);
 }

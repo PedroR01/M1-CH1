@@ -20,9 +20,8 @@ private:
 
   bool fallback;
   
-  void move();
   void checkPetting();
-  void stopRobot(bool* isPetting);
+  void stopRobot(bool (Interaccion::*callback)(), Interaccion* interaccionObj);
 
 public:
   Robot();
@@ -30,6 +29,8 @@ public:
   void path();
   void pingIntCheck();
   void setCheckState(bool value);
+  void move();
+
 };
 
 #endif

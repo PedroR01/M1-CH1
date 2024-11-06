@@ -36,8 +36,46 @@ void Robot::path() {
   cabeza.analize(&Interaccion::checkInterruptPetting, &interaccion, &fallback);
   checkPetting();
 
-  // Girar y orientar hacia el mejor camino detectado sin obstaculos
+  // Mantener el codigo de la rotacion. Quitar que solo rote en modo gato.
+  // En el caso de tener que retroceder, volver a ejecutar el analisis una vez que haya retrocedido
+  // Si debe volver a retroceder, entonces "apagar" gato hasta que deje de detectar un obstaculo (por ende alguien lo tiene que mover) + añadir un temporizador o la espera de una caricia para reanudar el recorrido.
+
+  // Medio raro como es este bloque de codigo para limitar la cant de veces que retrocede y su "desconexión" en caso extremo. Lo podría resolver con un while tranquilamente.
+  if (fallback) {
+    piernas.backwards(&Interaccion::checkInterruptPetting, &interaccion);
+    fallback = false;
+    cabeza.analize(&Interaccion::checkInterruptPetting, &interaccion, &fallback);
+    checkPetting();
+    if (fallback) {
+      piernas.backwards(&Interaccion::checkInterruptPetting, &interaccion);
+      fallback = false;
+      cabeza.analize(&Interaccion::checkInterruptPetting, &interaccion, &fallback);
+      checkPetting();
+      if (fallback) {
+        stopRobot(&Interaccion::checkInterruptPetting, &interaccion);
+      }
+    }
+  }
   int newAnglePath = cabeza.getBestAngle();
+  if (newAnglePath <= 75 || newAnglePath >= 115) {
+    // Girar y orientar hacia el mejor camino detectado sin obstaculos
+    if (newAnglePath <= 75 || newAnglePath >= 115) {  // Puede ser que este if sea innecesario a causa del else de arriba.
+      int direction;                                  // cambiar por un booleano goLeft, es mas entendible
+      int steps;
+
+      // Hacia donde debe girar y la cantidad de pasos para el giro. A medida que el angulo se acerca más al extremo, se incrementan la cantidad de pasos necesarios para la rotacion
+      if (newAnglePath <= 75) {
+        direction = 0;
+        steps = map(newAnglePath, 75, 40, 1, 4);
+      } else if (newAnglePath >= 115) {  // Este condicional puede ser redundante a causa del condicional en el que están contenidos
+        direction = 1;
+        steps = map(newAnglePath, 115, 140, 1, 5);
+      }
+      piernas.rotateCat(direction, steps, interaccion.getIsPetting());  // Esta acción no puede ser interrumpida por las caricias.
+    }
+  }
+
+  /*
   // Si el nuevo camino no es seguir adelante || O si no se interrumpio el analisis por caricia
   if (newAnglePath <= 85 || newAnglePath >= 95) {
     // si es esta en modo gato
@@ -47,11 +85,11 @@ void Robot::path() {
       // Hacia donde debe girar
       if (newAnglePath <= 85) {
         direction = 0;
-        map(steps, 85, 30, 1, 4);
+        map(steps, 85, 40, 1, 4);
         // A medida que el angulo sea cada vez más cerca de 0, se incrementan la cantidad de pasos necesarios para la rotacion
       } else if (newAnglePath >= 95) {
         direction = 1;
-        map(steps, 95, 150, 1, 5);
+        map(steps, 95, 140, 1, 5);
       }
 
       // Añadir la cantidad de pasos necesarios para la rotacion como parametro del metodo.
@@ -63,17 +101,17 @@ void Robot::path() {
       piernas.backwards(&Interaccion::checkInterruptPetting, &interaccion);
     }
   }
-
-
-  // Comportamiento acorde a la deteccion de petting
+*/
+  cabeza.centerNeck();
   checkPetting();
 
   // Posibles acciones randoms del gato
-  int mustAct = random(0, 10);  // de 0 a 3 quiere decir que hace algo random
+  int mustAct = random(0, 10);  // Si el valor random obtenido está entre 0 y 3, hace alguna de las acciones de abajo.
   if (((millis() - currentTime) > randomActionTimer) && mustAct <= 3) {
     int randomAction = random(0, 4);  // 4 acciones posibles
     // Si es gato
-    if (interaccion.isInCatMode()) {
+    bool catState = interaccion.isInCatMode();
+    if (catState) {
       // Dar la pata
       if (randomAction == 0 || randomAction == 2)
         piernas.giveHand();
@@ -83,27 +121,24 @@ void Robot::path() {
     }
     // Si no es gato
     else {
-      // Pararse en 2 patas
-      if (randomAction == 0 || randomAction == 2)
-        piernas.standInTwoLegs();
-      // O quedarse quieto en una posicion rara + luz led encendida
-      else
-        Serial.println("Accion que falta");
+      piernas.weirdPose();
     }
     // En cualquier caso también puede acostarse (segun su estado lo hace de forma distinta)
     if (randomAction == 4)
-      piernas.lieDown();
+      piernas.lieDown(catState);
 
     currentTime = millis();
     Serial.print("Se ejecutó la acción random: ");
     Serial.println(randomAction);
   }
+  delay(1000);
 
   // Comportamiento acorde a la deteccion de petting
   checkPetting();
 
   // El robot puede llegar a parar de ejecutarse
-  stopRobot(interaccion.getIsPetting());
+  stopRobot(&Interaccion::checkInterruptPetting, &interaccion);
+  checkPetting();
 }
 
 void Robot::pingIntCheck() {
@@ -111,10 +146,15 @@ void Robot::pingIntCheck() {
 }
 
 void Robot::move() {
+  /*
   if (interaccion.isInCatMode())
     piernas.catMovementWCb(&Interaccion::checkInterruptPetting, &interaccion);
   else
     piernas.botMovementWCb(&Interaccion::checkInterruptPetting, &interaccion);
+    */
+
+  //piernas.botMovementAlt(&Interaccion::checkInterruptPetting, &interaccion);
+   piernas.catMovementAlt(&Interaccion::checkInterruptPetting, &interaccion);
 }
 
 void Robot::setCheckState(bool value) {
@@ -128,22 +168,28 @@ void Robot::checkPetting() {
   if (*interaccion.getIsPetting() && interaccion.isInCatMode()) {
     piernas.sitDown();
     cabeza.headPettingMovement(&Interaccion::checkInterruptPetting, &interaccion);
-    piernas.setMoveTimer(30);
-    cabeza.setMoveTimer(30);
+    // En el caso de que alcance el modo gato, establece la velocidad de los movimientos a otra más lenta.
+    piernas.setMoveTimer(25);
+    cabeza.setMoveTimer(25);
     interaccion.petting();
   } else if (!interaccion.isInCatMode()) {
+    // En el caso de que alcance el modo gato, establece la velocidad de los movimientos a otra más rápida y explosiva.
     piernas.setMoveTimer(4);
     cabeza.setMoveTimer(4);
   }
 }
 
-void Robot::stopRobot(bool* isPetting) {
+void Robot::stopRobot(bool (Interaccion::*callback)(), Interaccion* interaccionObj) {
   // Mientras antes se lo acaricie, menos "frecuente" se parará el robot.
   if ((millis() - lastStopedTime) > randomStopTimer) {
-    while (!*isPetting) {
-      checkPetting();
+    bool isPetting = (interaccionObj->*callback)();
+    while (!isPetting) {
+      piernas.lieDown(interaccion.isInCatMode());
       Serial.println("Robot en estado crítico. Acariciar!");
+      isPetting = (interaccionObj->*callback)();
+      // checkPetting();
     }
     lastStopedTime = millis();
+    delay(1000);
   }
 }

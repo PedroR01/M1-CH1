@@ -17,16 +17,17 @@ void Interaccion::begin() {
 void Interaccion::petting() {
   if (touch.capacitiveSensor(30) > threshold) {
     isPetting = true;
-    /*if (isInCatMode())
-      digitalWrite(motorPin, HIGH);*/
-    Serial.print("Estado motor vibracion: ");
-    Serial.println(digitalRead(motorPin));
-    catMode++;
+    //if (isInCatMode())
+    //digitalWrite(motorPin, HIGH);
+    //Serial.print("Estado motor vibracion: ");
+    //Serial.println(digitalRead(motorPin));
+    if (catMode < 100) // Máximo acumulable del modo gato = 100.
+      catMode++;
   } else {
     digitalWrite(motorPin, LOW);
     isPetting = false;
     if (catMode >= 0.2)
-      catMode -= 0.2;
+      catMode -= 0.02;
   }
 }
 
