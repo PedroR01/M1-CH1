@@ -17,14 +17,23 @@ void Cabeza::begin() {
   neck.attach(neckPin);
   neck.write(centeredPos);
 
-  bestAngle = centeredPos;
+  bestAngle = -1;
   pingTimer = millis();
 }
 
 void Cabeza::pingInterruptionCheck() {
-  if (millis() >= pingTimer) {           // pingSpeed milliseconds since last ping, do another ping.
-    pingTimer += pingSpeed;              // Set the next ping time.
-    eyes.ping_timer(Cabeza::echoCheck);  // Send out the ping, calls "echoCheck" function every 24uS where you can check the ping status.
+  if (millis() >= pingTimer) {  // pingSpeed milliseconds since last ping, do another ping.
+    pingTimer += pingSpeed;     // Set the next ping time.
+
+    // Escribir el codigo acá no es para nada lo más optimo, convendría manejarlo en el echoCheck
+    //Serial.println(eyes.ping_cm());
+    if (!mustAnalize) {
+      int distancia = getFilteredDistance();
+      if (distancia <= OBSTACLE_DISTANCE && distancia != 0) {
+        mustAnalize = true;
+      }
+    }
+    //eyes.ping_timer(Cabeza::echoCheck);  // Send out the ping, calls "echoCheck" function every 24uS where you can check the ping status.
   }
 }
 
@@ -34,8 +43,20 @@ void Cabeza::echoCheck() {  // Timer2 interrupt calls this function every 24uS w
                                               // Here's where you can add code.
 
     // Analizar si hay algun obstaculo enfrente.
-    if (instanciaActual->getFilteredDistance() < OBSTACLE_DISTANCE && instanciaActual->eyes.ping_cm() != 0)
-      instanciaActual->mustAnalize = true;
+    /*
+    // De esta forma no se genera una interferencia de señales entre la interrupcion y los metodos, algo que si pasa si se usa ping_cm
+    // Por ende, con el resultado del ping y su conversion manual a CM habría que hacer un metodo que filtre un promedio de señales para eliminar los ruidos.
+    Serial.print("Ping: ");
+    Serial.print(instanciaActual->eyes.ping_result / US_ROUNDTRIP_CM); // Ping returned, uS result in ping_result, convert to cm with US_ROUNDTRIP_CM.
+    Serial.println("cm");
+    */
+    /*
+    int distancia = instanciaActual->getFilteredDistance();
+      Serial.println(instanciaActual->eyes.ping_cm());
+    if (distancia <= OBSTACLE_DISTANCE && instanciaActual->eyes.ping_cm() != 0){
+      //instanciaActual->mustAnalize = true;
+    }
+    */
   }
   // Don't do anything here!
 }
@@ -45,9 +66,16 @@ void Cabeza::analize(bool (Interaccion::*callback)(), Interaccion* interaccionOb
   if (this->mustAnalize) {
     actualTime = millis();
     lastObservedTime = actualTime;
+    // Segundo chequeo de obstaculos para evitar ruidos en la señal
     int distancia = getFilteredDistance();
-    if (distancia < OBSTACLE_DISTANCE && distancia != 0)
-      seeArround(callback, interaccionObj, fallback);
+    if (distancia <= OBSTACLE_DISTANCE && distancia != 0) {
+      Serial.print("Obstaculo detectado a: ");
+      Serial.println(distancia);
+      if (distancia <= 6) {
+        *fallback = true;
+      } else
+        seeArround(callback, interaccionObj, fallback);
+    }
     mustAnalize = false;
   }
 }
@@ -57,15 +85,15 @@ void Cabeza::analize(bool (Interaccion::*callback)(), Interaccion* interaccionOb
 // a "si adelante hay un obstaculo, revisar izquierda, si en izquierda también, revisar derecha".
 // Tal vez, para solventar esta falencia, sería buena solución usar sensores Infrarrojos de obstaculos a los costados del cuello.
 void Cabeza::seeArround(bool (Interaccion::*callback)(), Interaccion* interaccionObj, bool* fallback) {
-  int anguloInicial = 40;
-  int anguloFinal = 140;
-  int mejorAngulo = 90;
+  int anguloDerecho = 40;
+  int anguloIzquierdo = 140;
+  int mejorAngulo = -1;
   int mejorDistancia = 1;          // 0 representa que no hay obstaculos captados en el rango que permite el US o para el que se configuró.
-  int offsetMarginDistance = 10;   // Para tener en cuenta en el caso de que haya algun obstaculo en algún costado que este apenas más lejos que el obstaculo detectado en frente.
+  int offsetMarginDistance = 2;    // Para tener en cuenta en el caso de que haya algun obstaculo en algún costado que este apenas más lejos que el obstaculo detectado en frente.
   int noObstacleVerification = 0;  // Contador para corroborar que no hay ningun obstaculo en la zona analizada.
 
   // Mueve la cabeza para detectar el entorno
-  int angulo = mejorAngulo;
+  int angulo = centeredPos;
   bool noObstacle = false;
   bool isPetting = (interaccionObj->*callback)();
 
@@ -78,13 +106,14 @@ void Cabeza::seeArround(bool (Interaccion::*callback)(), Interaccion* interaccio
   // Si no detecta nada, gira a la izquierda, se pone con el cuello derecho y luego sigue su rutina
 
   // Observa lado izquierdo
-  while (angulo <= anguloFinal && !isPetting && !noObstacle) {
+  while (angulo <= anguloIzquierdo && !isPetting && !noObstacle) {
     actualTime = millis();
     if ((actualTime - lastObservedTime) >= observeCompare) {
       neck.write(angulo);
       int distancia = getFilteredDistance();
-      if (distancia == 0 || distancia > (OBSTACLE_DISTANCE + offsetMarginDistance)) {
+      if (distancia == 0 || distancia >= (OBSTACLE_DISTANCE + offsetMarginDistance)) {
         noObstacleVerification += 1;
+        Serial.println(noObstacleVerification);
         if (noObstacleVerification >= ROBOT_WIDTH) {
           noObstacle = true;
           mejorAngulo = angulo;
@@ -117,16 +146,20 @@ void Cabeza::seeArround(bool (Interaccion::*callback)(), Interaccion* interaccio
   // En el caso de que no haya un camino libre por la izquierda
   if (!noObstacle) {  // mejorAngulo == 90
     // Observa lado derecho
-    while (angulo >= anguloInicial && !isPetting && !noObstacle) {
+    while (angulo >= anguloDerecho && !isPetting && !noObstacle) {
       actualTime = millis();
       if ((actualTime - lastObservedTime) >= observeCompare) {
         neck.write(angulo);
         int distancia = getFilteredDistance();
         if (distancia == 0 || distancia > (OBSTACLE_DISTANCE + offsetMarginDistance)) {
-          noObstacleVerification += 1;
-          if (noObstacleVerification >= ROBOT_WIDTH) {
-            noObstacle = true;
-            mejorAngulo = angulo;
+          // Verifica el espacio para moverse una vez que el cuello rota hacia la mitad derecha.
+          if (angulo < centeredPos) {
+            noObstacleVerification += 1;
+            Serial.println(noObstacleVerification);
+            if (noObstacleVerification >= ROBOT_WIDTH) {
+              noObstacle = true;
+              mejorAngulo = angulo;
+            }
           }
         } else if (distancia <= OBSTACLE_DISTANCE) {
           noObstacleVerification = 0;  // Me conviene reiniciar el contador o restarlo en 1, por si solamente captó una señal erronea/equivocada?
@@ -155,22 +188,25 @@ void Cabeza::seeArround(bool (Interaccion::*callback)(), Interaccion* interaccio
 
   Serial.println("El mejor angulo es: ");
   Serial.println(mejorAngulo);
-  Serial.println("La mejor distancia es: ");
-  Serial.println(mejorDistancia);
-  delay(2000);
 
   // Usa booleano isPetting para chequear si se ejecutó la interrupción de la caricia. En dicho caso se resetean los valores como para repetir el analisis
-  if (isPetting || (mejorAngulo < 95 && mejorAngulo > 85)) {
-    neck.write(90);
-    mejorAngulo = 90;
+  if (isPetting || mejorAngulo == -1) {
+    neck.write(centeredPos);
+    mejorAngulo = -1;
     noObstacle = false;
   }
 
+
   // Si se encuentra encerrado debe retroceder y pegar la vuelta o analizar desde otra posicion
+  if (mejorAngulo == -1) {
+    *fallback = true;
+  }
+  /*
   if ((mejorDistancia <= OBSTACLE_DISTANCE && mejorDistancia != 0) || !noObstacle) {
     Serial.println("Debe retroceder.");
     *fallback = true;
   }
+*/
 
   mustAnalize = false;
   bestAngle = mejorAngulo;
@@ -189,8 +225,8 @@ void Cabeza::analize(bool* isPetting) {
 // Cuando analiza el entorno no se va a mover, por lo que lo unico que lo puede interrumpir es acariciarlo
 // FALTA TENER EN CUENTA SI EL ANCHO DEL GATO PERMITE QUE PASE POR EL MEJOR CAMINO DETECTADO
 void Cabeza::seeArround(bool* isPetting) {
-  int anguloInicial = 30;
-  int anguloFinal = 150;
+  int anguloDerecho = 30;
+  int anguloIzquierdo = 150;
   int paso = 5;
   int mejorAngulo = 90;
   int mejorDistancia = 0;
@@ -200,7 +236,7 @@ void Cabeza::seeArround(bool* isPetting) {
   bool noObstacle = false;
 
   // Observa lado derecho
-  while (angulo >= anguloInicial && !*isPetting) {
+  while (angulo >= anguloDerecho && !*isPetting) {
     actualTime = millis();
     if (timeLapse()) {
       neck.write(angulo);
@@ -224,7 +260,7 @@ void Cabeza::seeArround(bool* isPetting) {
   // En el caso de que no haya encontrado un mejor camino por el lado derecho, mira su lado izquierdo.
   if (mejorAngulo == 90) {
     // Observa lado izquierdo
-    while (angulo <= anguloFinal && !*isPetting) {
+    while (angulo <= anguloIzquierdo && !*isPetting) {
       actualTime = millis();
       if (timeLapse()) {
         neck.write(angulo);
@@ -297,6 +333,10 @@ int Cabeza::getBestAngle() {
   return bestAngle;
 }
 
+void Cabeza::resetBestAngle() {
+  this->bestAngle = -1;
+}
+
 float Cabeza::getDistancia() {
   return eyes.ping_cm();
 }
@@ -329,5 +369,5 @@ void Cabeza::setMoveTimer(unsigned long value) {
 }
 
 void Cabeza::centerNeck() {
-  neck.write(90);
+  neck.write(centeredPos);
 }

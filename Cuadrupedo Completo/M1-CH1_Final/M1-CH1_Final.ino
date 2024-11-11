@@ -18,8 +18,8 @@ void setup() {
 
 void loop() {
   michi.pingIntCheck();
-  // michi.path();
-  michi.move();
+  michi.path();
+  //michi.move();
 }
 
 /*

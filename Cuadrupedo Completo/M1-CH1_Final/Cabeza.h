@@ -11,7 +11,7 @@ private:
   // Ultrasonico HC-SR04
   const int triggerPin = 5;
   const int echoPin = 3;
-  const int maxDistance = 90;
+  const int maxDistance = 100;
   NewPing eyes = NewPing(triggerPin, echoPin, maxDistance);
   unsigned int pingSpeed = 50;  //120  // How frequently are we going to send out a ping (in milliseconds). 50ms would be 20 times a second.
   unsigned long pingTimer;      // Holds the next ping time.
@@ -25,7 +25,7 @@ private:
   const int limiteSup = 100;
   const int limiteInf = 80;
   const int centeredPos = 90;
-  int bestAngle = 90;
+  int bestAngle = -1;
 
   bool mustAnalize = false;
 
@@ -44,6 +44,7 @@ public:
   void analize(bool* isPetting);
   void analize(bool(Interaccion::*callback)(), Interaccion* interaccionObj, bool* fallback);
   int getBestAngle();
+  void resetBestAngle();
   float getDistancia();
   void headPettingMovement(bool(Interaccion::*callback)(), Interaccion* interaccionObj);
   bool timeLapse();

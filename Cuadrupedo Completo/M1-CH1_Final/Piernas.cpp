@@ -110,7 +110,7 @@ void Piernas::lieDown(bool catMode) {
 
 // Por implementar: Cuando se acuesta y detecta algo delante que se aproxima, hace este movimiento como para que le hagan mimos?
 void Piernas::sitDown() {
-  while (backL.read() != 15 && backR.read() != 170) {
+  while (backL.read() != 15 || backR.read() != 170) {
     if (timeLapse()) {
       if (backL.read() != 15) {
         int i = backL.read();
@@ -185,26 +185,26 @@ void Piernas::standInTwoLegs() {
 }
 
 void Piernas::giveHand() {
-
+  /*
   while (backL.read() != 60 || backR.read() != 125) {
     if (timeLapse()) {
       // Dependiendo de la pos de la trasera izquierda es hacia donde tiene que moverse.
-      if (backL.read() > 60) {
+      if (backL.read() > 40) {
         int i = backL.read();
         i--;
         backL.write(i);
-      } else if (backL.read() < 60) {
+      } else if (backL.read() < 40) {
         int i = backL.read();
         i++;
         backL.write(i);
       }
 
       // Dependiendo de la pos de la trasera derecha es hacia donde tiene que moverse.
-      if (backR.read() < 125) {
+      if (backR.read() < 140) {
         int i = backR.read();
         i++;
         backR.write(i);
-      } else if (backR.read() > 125) {
+      } else if (backR.read() > 140) {
         int i = backR.read();
         i--;
         backR.write(i);
@@ -212,7 +212,8 @@ void Piernas::giveHand() {
       lastMoveTime = millis();
     }
   }
-
+*/
+  sitDown();
   delay(1000);
 
   while (frontL.read() != 0 || frontR.read() != 100) {
@@ -239,12 +240,12 @@ void Piernas::giveHand() {
 }
 
 void Piernas::weirdPose() {
-  frontL.write(70);   // 70 derecho - 150 atras - 20 adelante
-  frontR.write(100);  // 100 derecho - 40 atras - 170 adelante
+  frontL.write(45);   // 70 derecho - 150 atras - 20 adelante
+  frontR.write(125);  // 100 derecho - 40 atras - 170 adelante
   delay(600);
   backL.write(150);  // 80 derecho - 160 atras - 35 adelante
   delay(300);
-  backR.write(30);  // 100 derecho - 15 atras - 170 adelante
+  backR.write(50);  // 100 derecho - 15 atras - 170 adelante
   delay(600);
 }
 
@@ -269,17 +270,21 @@ void Piernas::rotateCat(int direccion, int cant, bool* isPetting) {
         girando--;
       }
     } else {
-      frontR.write(110);
-      backR.write(105);
-      delay(1000);
-      // Gira hacia la derecha
+
       while (girando > 0 && !*isPetting) {
-        backL.write(65);
-        frontL.write(55);
-        delay(1000);
-        backL.write(110);
-        frontL.write(100);
-        delay(1000);
+        frontR.write(130);
+        frontL.write(40);
+
+        backL.write(80);
+        backR.write(100);
+        delay(500);
+        frontL.write(120);
+        delay(500);
+        backL.write(140);
+        backR.write(60);
+        delay(500);
+        frontL.write(50);
+        delay(500);
         girando--;
       }
     }
@@ -292,18 +297,20 @@ void Piernas::rotateCat(int direccion, int cant, bool* isPetting) {
 
 void Piernas::backwards(bool (Interaccion::*callback)(), Interaccion* interaccionObj) {
   int retrocederDistancia = 40;
-  standUp();
   bool isPetting = (interaccionObj->*callback)();
   delay(1000);
-  if (!isPetting) {
-    frontL.write(frontL.read() + retrocederDistancia);
-    frontR.write(frontR.read() - retrocederDistancia);
-    delay(1000);  // Espera para completar la maniobra de retroceso
-    isPetting = (interaccionObj->*callback)();
+  for (int i = 0; i < 4; i++) {
+    standUp();
     if (!isPetting) {
-      frontL.write(frontL.read() - (retrocederDistancia * 1.5));
-      frontR.write(frontR.read() + (retrocederDistancia * 1.5));
-      delay(1000);
+      frontL.write(frontL.read() + retrocederDistancia);
+      frontR.write(frontR.read() - retrocederDistancia);
+      delay(1000);  // Espera para completar la maniobra de retroceso
+      isPetting = (interaccionObj->*callback)();
+      if (!isPetting) {
+        frontL.write(frontL.read() - (retrocederDistancia * 1.5));
+        frontR.write(frontR.read() + (retrocederDistancia * 1.5));
+        delay(1000);
+      }
     }
   }
 }
@@ -329,25 +336,32 @@ void Piernas::botMovementWCb(bool (Interaccion::*callback)(), Interaccion* inter
 void Piernas::botMovementAlt(bool (Interaccion::*callback)(), Interaccion* interaccionObj) {
   standUp();
   // El problema es que si las de adelante van muy hacia atras, el gato no puede efecutar bien su movimiento.
-  if (1) {
+  bool isPetting = (interaccionObj->*callback)();
+  if (!isPetting) {
     /*movimiento tipo chimpance */
 
     // Piernas delanteras hacia delante
     frontR.write(160);
     frontL.write(30);
     delay(600);
-    // Piernas delanteras rectas y piernas traseras hacia delante
-    frontR.write(100);
-    frontL.write(70);
-    backR.write(160);
-    backL.write(45);
-    delay(600);
-    // Piernas traseras hacia atras y piernas delanteras hacia delante.
-    backR.write(25);
-    backL.write(150);
-    frontR.write(160);
-    frontL.write(30);
-    delay(600);
+    isPetting = (interaccionObj->*callback)();
+    if (!isPetting) {
+      // Piernas delanteras rectas y piernas traseras hacia delante
+      frontR.write(100);
+      frontL.write(70);
+      backR.write(160);
+      backL.write(45);
+      delay(600);
+      isPetting = (interaccionObj->*callback)();
+      if (!isPetting) {
+        // Piernas traseras hacia atras y piernas delanteras hacia delante.
+        backR.write(25);
+        backL.write(150);
+        frontR.write(160);
+        frontL.write(30);
+        delay(600);
+      }
+    }
   }
 }
 

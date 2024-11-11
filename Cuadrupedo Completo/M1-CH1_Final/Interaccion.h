@@ -9,7 +9,7 @@ private:
   // Pin conectado a la base del transistor para activar el motor de vibración 3v
   const int motorPin = 8;
 
-  const int threshold = 700;
+  const int threshold = 500;
   const int capOutPin = 10;
   const int capInPin = 7;
 

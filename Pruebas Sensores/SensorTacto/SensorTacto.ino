@@ -4,7 +4,7 @@
 CapacitiveSensor capSensor = CapacitiveSensor(10, 7);
 
 // Filtro o rango a partir del que se desea efectuar algun evento
-const int threshold = 500;
+const int threshold = 600;
 
 void setup() {
   Serial.begin(9600);

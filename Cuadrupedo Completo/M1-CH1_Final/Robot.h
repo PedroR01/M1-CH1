@@ -12,16 +12,19 @@ private:
   Piernas piernas;
   Interaccion interaccion;
 
-  int currentTime;
-  int lastStopedTime;
+  long int currentTime;
+  long int lastStopedTime;
 
-  int randomStopTimer;
-  int randomActionTimer;
+  unsigned long int randomStopTimer;
+  unsigned long int stopTimerCopy;
+
+  unsigned long randomActionTimer;
 
   bool fallback;
   
   void checkPetting();
-  void stopRobot(bool (Interaccion::*callback)(), Interaccion* interaccionObj);
+  void stopRobot();
+  void takeAnotherPath();
 
 public:
   Robot();
